@@ -17,10 +17,7 @@ set_target_properties(watchdog PROPERTIES PREFIX "")
 # Install module
 install(TARGETS watchdog LIBRARY DESTINATION ${TARANTOOL_INSTALL_LIBDIR}/${PROJECT_NAME}/)
 
-if(NOT NO_SELFTEST)
-add_custom_command(
-    TARGET watchdog POST_BUILD
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test.lua
-)
-endif()
+enable_testing()
+add_test(watchdog ${CMAKE_CURRENT_SOURCE_DIR}/test/start.lua)
+# add_test(watchdog ${CMAKE_CURRENT_SOURCE_DIR}/test/stop.lua)
+# add_test(watchdog ${CMAKE_CURRENT_SOURCE_DIR}/test/abort.lua)
