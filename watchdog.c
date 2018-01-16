@@ -33,20 +33,27 @@ static ssize_t coio_timer(va_list ap)
 }
 
 static int fiber_timer(va_list ap)
-{    
-    coio_call(coio_timer, timeout);
+{
+    fiber_set_cancellable(true);
+    int rv = coio_call(coio_timer, timeout);
+    say_info("coio_call() returned %d", rv);
     return 0;
 }
 
 static int fiber_petting(va_list ap)
 {
-    while (timeout) {
+    fiber_set_cancellable(true);
+    while (!fiber_is_cancelled()) {
         pettime = clock_monotonic();
         fiber_sleep(timeout/2.);
     }
+    say_info("fiber_petting() returning");
 
     return 0;
 }
+
+static struct fiber* f_petting;// = fiber_new("watchdog_petting", fiber_petting);
+static struct fiber* f_timer; // = fiber_new("watchdog_timer", fiber_timer);
 
 int start(lua_State *L)
 {
@@ -63,10 +70,10 @@ int start(lua_State *L)
     }
 
     timeout = t;
-    struct fiber* f_petting = fiber_new("watchdog_petting", fiber_petting);
+    f_petting = fiber_new("watchdog_petting", fiber_petting);
     fiber_start(f_petting);
 
-    struct fiber* f_timer = fiber_new("watchdog_timer", fiber_timer);
+    f_timer = fiber_new("watchdog_timer", fiber_timer);
     fiber_start(f_timer);
 
     return 0;
@@ -75,7 +82,15 @@ int start(lua_State *L)
 int stop(lua_State *L)
 {
     timeout = 0;
+    fiber_cancel(f_petting);
+    fiber_cancel(f_timer);
     return 0;
+}
+
+void watchdog_atexit(void)
+{
+    timeout = 0;
+    say_error("WATCHDOG ATAXIT");
 }
 
 /* ====================LIBRARY INITIALISATION FUNCTION======================= */
@@ -88,5 +103,6 @@ int luaopen_watchdog(lua_State *L)
         {NULL, NULL}
     };
     luaL_newlib(L, lib);
+    atexit(watchdog_atexit);
     return 1;
 }
