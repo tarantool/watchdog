@@ -3,3 +3,9 @@
 *.swp*
 
 build/
+CMakeCache.txt
+CMakeFiles/
+Makefile
+Testing/
+*.cmake
+*.so
