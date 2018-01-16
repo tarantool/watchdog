@@ -1,19 +1,21 @@
 #include <stdlib.h>
+#include <assert.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <math.h>
+#include <time.h>
 
 #include <lua.h>
 #include <lauxlib.h>
 #include <module.h> // tarantool
 
 volatile static double pettime = 0.;
-static double timeout = 0.;
+volatile static double timeout = 0.;
+static struct fiber* f_petting;
+static struct fiber* f_timer;
 
 static ssize_t coio_timer(va_list ap)
 {
-    say_info("Watchdog started with timeout %.1f sec", timeout);
-
     while (timeout) {
         double now = clock_monotonic();
 
@@ -21,23 +23,19 @@ static ssize_t coio_timer(va_list ap)
             say_error("Watchdog timeout %.1f sec. Aborting", timeout);
             abort();
         } else {
-            sleep(pettime + timeout - now + 1);
+            struct timespec ms200 = {.tv_nsec = 200L*1000*1000};
+            nanosleep(&ms200, NULL);
         }
     }
 
     say_info("Watchdog stopped");
     return 0;
-
-    #undef NANOSECONDS
-    #undef SECONDS
 }
 
 static int fiber_timer(va_list ap)
 {
-    fiber_set_cancellable(true);
-    int rv = coio_call(coio_timer, timeout);
-    say_info("coio_call() returned %d", rv);
-    return 0;
+    fiber_set_joinable(fiber_self(), true);
+    return coio_call(coio_timer, timeout);
 }
 
 static int fiber_petting(va_list ap)
@@ -47,13 +45,11 @@ static int fiber_petting(va_list ap)
         pettime = clock_monotonic();
         fiber_sleep(timeout/2.);
     }
-    say_info("fiber_petting() returning");
+    // say_info("fiber_petting() returning");
 
     return 0;
 }
 
-static struct fiber* f_petting;// = fiber_new("watchdog_petting", fiber_petting);
-static struct fiber* f_timer; // = fiber_new("watchdog_timer", fiber_timer);
 
 int start(lua_State *L)
 {
@@ -63,18 +59,23 @@ int start(lua_State *L)
     }
     
     if (timeout) {
-        pettime = clock_monotonic();
         timeout = t;
+        pettime = clock_monotonic();
+        
         say_info("Watchdog timeout changed to %.1f sec", timeout);
-        return 0;
+    } else {
+        timeout = t;
+
+        assert(f_petting == NULL);
+        f_petting = fiber_new("watchdog_petting", fiber_petting);
+        fiber_start(f_petting);
+
+        assert(f_timer == NULL);
+        f_timer = fiber_new("watchdog_timer", fiber_timer);
+        fiber_start(f_timer);
+
+        say_info("Watchdog started with timeout %.1f sec", timeout);        
     }
-
-    timeout = t;
-    f_petting = fiber_new("watchdog_petting", fiber_petting);
-    fiber_start(f_petting);
-
-    f_timer = fiber_new("watchdog_timer", fiber_timer);
-    fiber_start(f_timer);
 
     return 0;
 }
@@ -82,15 +83,20 @@ int start(lua_State *L)
 int stop(lua_State *L)
 {
     timeout = 0;
+
     fiber_cancel(f_petting);
-    fiber_cancel(f_timer);
+    f_petting = NULL;
+
+    fiber_join(f_timer);
+    f_timer = NULL;
+
     return 0;
 }
 
 void watchdog_atexit(void)
 {
     timeout = 0;
-    say_error("WATCHDOG ATAXIT");
+    return;
 }
 
 /* ====================LIBRARY INITIALISATION FUNCTION======================= */
