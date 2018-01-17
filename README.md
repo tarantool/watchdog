@@ -2,12 +2,20 @@
 
 # Simple watchdog module for Tarantool
 
+The watchdog module is useful when
+the responsiveness of the system is important.
+
 The watchdog module spawns a thread and continuously checks the value
-of an internal variable. The variable is periodically being updated
+of an internal variable. The variable is updated periodically
 by a separate tarantool fiber.
 
+The fiber update period equals to 1/2 of the `timeout` parameter.
+The watchdog period is hardcoded to be 200ms.
+
 Whenever a problem with an update fiber occurs the watchdog thread
-sends the ABRT signal to the tarantool process thus committing suicide.
+performs `exit(6)`.
+The problem may be caused by using blocking signals or
+by mistakes in other modules (e.g. `while true ... end`)
 
 ## Installing
 
