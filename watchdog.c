@@ -16,12 +16,13 @@ static struct fiber* f_timer;
 
 static ssize_t coio_timer(va_list ap)
 {
-	while (timeout) {
+	double tt;
+	while (tt = timeout) {
 		double now = clock_monotonic();
 
-		if (now > pettime + timeout) {
-			say_error("Watchdog timeout %.1f sec. Aborting", timeout);
-			abort();
+		if (now > pettime + tt) {
+			say_error("Watchdog timeout %.1f sec. Aborting", tt);
+			exit(6); // because SIGABRT == 6
 		} else {
 			struct timespec ms200 = {.tv_nsec = 200L*1000*1000};
 			nanosleep(&ms200, NULL);
@@ -35,13 +36,13 @@ static ssize_t coio_timer(va_list ap)
 static int fiber_timer(va_list ap)
 {
 	fiber_set_joinable(fiber_self(), true);
-	return coio_call(coio_timer, timeout);
+	return coio_call(coio_timer);
 }
 
 static int fiber_petting(va_list ap)
 {
 	fiber_set_cancellable(true);
-	while (!fiber_is_cancelled()) {
+	while (!fiber_is_cancelled() && timeout) {
 		pettime = clock_monotonic();
 		fiber_sleep(timeout/2.);
 	}
