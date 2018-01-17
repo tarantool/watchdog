@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 
 project(watchdog C)
 
+if (APPLE)
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined suppress -flat_namespace")
+endif(APPLE)
+
 # Find Tarantool and Lua dependecies
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 set(TARANTOOL_FIND_REQUIRED ON)
