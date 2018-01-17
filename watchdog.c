@@ -17,7 +17,7 @@ static struct fiber* f_timer;
 static ssize_t coio_timer(va_list ap)
 {
 	double tt;
-	while (tt = timeout) {
+	while (tt = timeout, tt) {
 		double now = clock_monotonic();
 
 		if (now > pettime + tt) {
