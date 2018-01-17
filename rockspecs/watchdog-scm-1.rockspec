@@ -9,23 +9,18 @@ description = {
     homepage = 'https://github.com/tarantool/watchdog',
     license  = 'BSD'
 }
+
 dependencies = {
     'lua >= 5.1'
 }
-external_dependencies = {
-    TARANTOOL = {
-        header = "tarantool/module.h"
-    }
-}
+
 build = {
-    type = 'builtin',
-    modules = {
-        ['watchdog'] = {
-            sources = "watchdog.c",
-            incdirs = {
-                "$(TARANTOOL_INCDIR)"
-            }
-        }
+    type = 'cmake',
+    variables = {
+        CMAKE_BUILD_TYPE = "RelWithDebInfo",
+        CMAKE_INSTALL_PREFIX = "$(PREFIX)",
+        TARANTOOL_INSTALL_LIBDIR = "lib",
+        TARANTOOL_INSTALL_LUADIR = "lua",
     }
 }
 -- vim: syntax=lua
