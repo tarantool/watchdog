@@ -7,7 +7,8 @@ source  = {
 description = {
     summary  = "Simple watchdog module for Tarantool",
     homepage = 'https://github.com/tarantool/watchdog',
-    license  = 'BSD'
+    maintainer = "Yaroslav Dynnikov <yaroslav.dynnikov@gmail.com>",
+    license  = 'BSD2'
 }
 
 dependencies = {
