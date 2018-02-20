@@ -16,17 +16,27 @@ static struct fiber* f_timer;
 
 static ssize_t coio_timer(va_list ap)
 {
+	double prev = clock_monotonic();
 	double tt;
 	while (tt = timeout, tt) {
 		double now = clock_monotonic();
 
 		if (now > pettime + tt) {
-			say_error("Watchdog timeout %.1f sec. Aborting", tt);
-			exit(6); // because SIGABRT == 6
+			if (now - prev > 1) {
+				// nanosleep took > 1 sec instead of 200ms
+				// maybe system was suspended for a while
+				// thus timeout should be ignored once
+				pettime = now;
+			} else {
+				say_error("Watchdog timeout %.1f sec. Aborting", tt);
+				exit(6); // because SIGABRT == 6
+			}
 		} else {
 			struct timespec ms200 = {.tv_nsec = 200L*1000*1000};
 			nanosleep(&ms200, NULL);
 		}
+
+		prev = now;
 	}
 
 	say_info("Watchdog stopped");
@@ -74,7 +84,7 @@ int start(lua_State *L)
 		f_timer = fiber_new("watchdog_timer", fiber_timer);
 		fiber_start(f_timer);
 
-		say_info("Watchdog started with timeout %.1f sec", timeout);        
+		say_info("Watchdog started with timeout %.1f sec", timeout);
 	}
 
 	return 0;
