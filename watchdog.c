@@ -9,7 +9,7 @@
 #include <lauxlib.h>
 #include <module.h> // tarantool
 
-volatile static bool is_second_chance = false;
+volatile static double last_pettime_check = 0.;
 volatile static double pettime = 0.;
 volatile static double timeout = 0.;
 static struct fiber* f_petting;
@@ -22,12 +22,17 @@ static ssize_t coio_timer(va_list ap)
 		double now = clock_monotonic();
 
 		if (now > pettime + tt) {
-			if (is_second_chance) {
+			if (now - last_pettime_check > timeout) {
+				// So long. Perhaps we are awake now
+				// Just try to wait a bit
+				pettime = now;
+				last_pettime_check = now;
+			} else {
 				say_error("Watchdog timeout %.1f sec. Aborting", tt);
 				exit(6); // because SIGABRT == 6
 			}
-			is_second_chance = true;
 		} else {
+			last_pettime_check = now;
 			struct timespec ms200 = {.tv_nsec = 200L*1000*1000};
 			nanosleep(&ms200, NULL);
 		}
@@ -47,7 +52,6 @@ static int fiber_petting(va_list ap)
 {
 	fiber_set_cancellable(true);
 	while (!fiber_is_cancelled() && timeout) {
-		is_second_chance = false;
 		pettime = clock_monotonic();
 		fiber_sleep(timeout/2.);
 	}
@@ -69,8 +73,6 @@ int start(lua_State *L)
 		
 		say_info("Watchdog timeout changed to %.1f sec", timeout);
 	} else {
-		is_second_chance = false;
-
 		timeout = t;
 
 		assert(f_petting == NULL);
