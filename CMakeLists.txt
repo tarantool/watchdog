@@ -18,7 +18,7 @@ add_library(watchdog SHARED watchdog.c)
 set_target_properties(watchdog PROPERTIES PREFIX "")
 
 # Install module
-install(TARGETS watchdog LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/${TARANTOOL_INSTALL_LIBDIR})
+install(TARGETS watchdog LIBRARY DESTINATION ${TARANTOOL_INSTALL_LIBDIR})
 
 enable_testing()
 add_test(watchdog_started ${CMAKE_CURRENT_SOURCE_DIR}/test/started.lua)

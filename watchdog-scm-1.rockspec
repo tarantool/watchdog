@@ -12,16 +12,23 @@ description = {
 }
 
 dependencies = {
-    'lua >= 5.1'
+    'tarantool',
+    'lua >= 5.1',
+}
+
+external_dependencies = {
+    TARANTOOL = {
+        header = 'tarantool/module.h';
+    };
 }
 
 build = {
     type = 'cmake',
     variables = {
         CMAKE_BUILD_TYPE = "RelWithDebInfo",
-        CMAKE_INSTALL_PREFIX = "$(PREFIX)",
-        TARANTOOL_INSTALL_LIBDIR = "lib",
-        TARANTOOL_INSTALL_LUADIR = "lua",
+        TARANTOOL_DIR='$(TARANTOOL_DIR)',
+        TARANTOOL_INSTALL_LIBDIR = "$(LIBDIR)",
+        TARANTOOL_INSTALL_LUADIR = "$(LUADIR)",
     }
 }
 -- vim: syntax=lua
