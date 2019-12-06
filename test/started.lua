@@ -15,4 +15,5 @@ fiber.sleep(2)
 local t1 = clock.monotonic()
 log.info("Still alive after %f sec", t1-t0)
 
+watchdog.stop()
 os.exit(0)
