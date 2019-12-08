@@ -6,6 +6,8 @@ local ffi = require('ffi')
 local clock = require('clock')
 local watchdog = require('watchdog')
 
+watchdog.stop()
+
 local t0 = clock.monotonic()
 watchdog.start(1)
 watchdog.stop()
@@ -18,5 +20,10 @@ ffi.C.sleep(2)
 
 local t1 = clock.monotonic()
 log.info("Still alive after %f sec", t1-t0)
+
+-- Attemt to stop watchdog twice
+watchdog.start(1)
+watchdog.stop()
+watchdog.stop()
 
 os.exit(0)

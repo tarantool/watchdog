@@ -1,7 +1,5 @@
 #include <stdlib.h>
 #include <assert.h>
-#include <unistd.h>
-#include <stdint.h>
 #include <math.h>
 #include <time.h>
 
@@ -11,11 +9,14 @@
 
 volatile static double pettime = 0.;
 volatile static double timeout = 0.;
-static struct fiber* f_petting;
-static struct fiber* f_timer;
+static struct fiber *f_petting = NULL;
+static struct fiber *f_timer = NULL;
 
-static ssize_t coio_timer(va_list ap)
+static ssize_t
+coio_timer(va_list ap)
 {
+	(void)ap;
+
 	double prev = clock_monotonic();
 	double tt;
 	while (tt = timeout, tt) {
@@ -32,7 +33,7 @@ static ssize_t coio_timer(va_list ap)
 				exit(6); // because SIGABRT == 6
 			}
 		} else {
-			struct timespec ms200 = {.tv_nsec = 200L*1000*1000};
+			struct timespec ms200 = {.tv_nsec = 200L * 1000 * 1000};
 			nanosleep(&ms200, NULL);
 		}
 
@@ -43,14 +44,18 @@ static ssize_t coio_timer(va_list ap)
 	return 0;
 }
 
-static int fiber_timer(va_list ap)
+static int
+fiber_timer(va_list ap)
 {
+	(void)ap;
 	fiber_set_joinable(fiber_self(), true);
 	return coio_call(coio_timer);
 }
 
-static int fiber_petting(va_list ap)
+static int
+fiber_petting(va_list ap)
 {
+	(void)ap;
 	fiber_set_cancellable(true);
 	while (!fiber_is_cancelled() && timeout) {
 		pettime = clock_monotonic();
@@ -61,14 +66,15 @@ static int fiber_petting(va_list ap)
 }
 
 
-int start(lua_State *L)
+static int
+start(lua_State *L)
 {
 	double t = luaL_checknumber(L, 1);
 	if (!isfinite(t) || t < 0) {
 		return luaL_argerror(L, 1, "timeout must be positive");
 	}
 	
-	if (timeout) {
+	if (timeout != 0) {
 		timeout = t;
 		pettime = clock_monotonic();
 		
@@ -90,28 +96,34 @@ int start(lua_State *L)
 	return 0;
 }
 
-int stop(lua_State *L)
+static int
+stop(lua_State *L)
 {
 	timeout = 0;
 
-	fiber_cancel(f_petting);
-	f_petting = NULL;
+	if (f_petting != NULL) {
+		fiber_cancel(f_petting);
+		f_petting = NULL;
+	}
 
-	fiber_join(f_timer);
-	f_timer = NULL;
+	if (f_timer != NULL) {
+		fiber_join(f_timer);
+		f_timer = NULL;
+	}
 
 	return 0;
 }
 
-void watchdog_atexit(void)
+static void
+watchdog_atexit(void)
 {
 	timeout = 0;
-	return;
 }
 
 /* ====================LIBRARY INITIALISATION FUNCTION======================= */
 
-int luaopen_watchdog(lua_State *L)
+LUA_API int
+luaopen_watchdog(lua_State *L)
 {
 	static const struct luaL_Reg lib [] = {
 		{"start", start},
