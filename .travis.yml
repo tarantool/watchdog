@@ -1,18 +1,11 @@
-sudo: required
-
-services:
-  - docker
-
 env:
   global:
-    - PRODUCT=tarantool-watchdog
     - ROCK_NAME=watchdog
-
-script:
-  - make -f .travis.mk
 
 jobs:
   include:
+    - script:
+      - make -f .travis.mk
     - stage: deploy
       name: Publish rockspecs
       script: skip
