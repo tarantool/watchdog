@@ -1,5 +1,5 @@
 package = 'watchdog'
-version = 'scm-1'
+version = 'scm-2'
 source  = {
     url    = 'git://github.com/tarantool/watchdog.git',
     branch = 'master',

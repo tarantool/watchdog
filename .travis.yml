@@ -11,12 +11,12 @@ jobs:
       script: skip
       deploy:
         - provider: script
-          script: curl --fail -X PUT -F rockspec=@$ROCK_NAME-scm-1.rockspec
+          script: curl --fail -X PUT -F rockspec=@$ROCK_NAME-scm-2.rockspec
             https://$ROCKS_USERNAME:$ROCKS_PASSWORD@rocks.tarantool.org
         - on:
             tags: true
           provider: script
-          script: cat $ROCK_NAME-scm-1.rockspec |
+          script: cat $ROCK_NAME-scm-2.rockspec |
             sed -E
             -e "s/branch = '.+'/tag = '$TRAVIS_TAG'/g"
             -e "s/version = '.+'/version = '$TRAVIS_TAG-1'/g" |
