@@ -29,3 +29,14 @@ $ tarantoolctl rocks install watchdog
 local watchdog = require('watchdog')
 watchdog.start(1) -- timeout in seconds (double)
 ```
+
+## Build rockspec
+
+### centos 7.5
+
+``` bash
+docker build -t watchdog -f Dockerfile .
+docker create --name watchdog -it --rm watchdog
+docker cp watchdog:/watchdog/watchdog-scm-1.linux-x86_64.rock .
+docker rm -f watchdog
+```
