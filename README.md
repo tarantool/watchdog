@@ -13,7 +13,7 @@ The fiber update period equals to 1/2 of the `timeout` parameter.
 The watchdog period is hardcoded to be 200ms.
 
 Whenever a problem with an update fiber occurs the watchdog thread
-performs `exit(6)`.
+performs `exit(6)` if coredump is disabled otherwise `abort()`.
 The problem may be caused by using blocking signals or
 by mistakes in other modules (e.g. `while true ... end`)
 
@@ -28,4 +28,5 @@ $ tarantoolctl rocks install watchdog
 ```lua
 local watchdog = require('watchdog')
 watchdog.start(1) -- timeout in seconds (double)
+watchdog.start(1, true) -- timeout in seconds (double) and coredump is enabled
 ```

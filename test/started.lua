@@ -16,4 +16,9 @@ local t1 = clock.monotonic()
 log.info("Still alive after %f sec", t1-t0)
 
 watchdog.stop()
+
+-- Start with enable_coredump option
+watchdog.start(1, true)
+watchdog.stop()
+
 os.exit(0)

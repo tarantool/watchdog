@@ -21,7 +21,7 @@ ffi.C.sleep(2)
 local t1 = clock.monotonic()
 log.info("Still alive after %f sec", t1-t0)
 
--- Attemt to stop watchdog twice
+-- Attempt to stop watchdog twice
 watchdog.start(1)
 watchdog.stop()
 watchdog.stop()
