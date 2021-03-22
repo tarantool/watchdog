@@ -28,3 +28,7 @@ local watchdog = require('watchdog')
 watchdog.start(1) -- timeout in seconds (double)
 watchdog.start(1, true) -- timeout in seconds (double) and coredump is enabled
 ```
+
+## Examining coredump
+
+See: https://github.com/tarantool/luajit/blob/tarantool/src/luajit-gdb.py
