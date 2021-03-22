@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.org/tarantool/watchdog.svg?branch=master)](https://travis-ci.org/tarantool/watchdog)
-
 # Simple watchdog module for Tarantool
 
 The watchdog module is useful when
