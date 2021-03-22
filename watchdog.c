@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <signal.h>
 #include <assert.h>
 #include <math.h>
 #include <time.h>
@@ -7,6 +8,7 @@
 #include <lauxlib.h>
 #include <module.h> // tarantool
 
+volatile static bool enable_coredump = false;
 volatile static double pettime = 0.;
 volatile static double timeout = 0.;
 static struct fiber *f_petting = NULL;
@@ -30,7 +32,11 @@ coio_timer(va_list ap)
 				pettime = now;
 			} else {
 				say_error("Watchdog timeout %.1f sec. Aborting", tt);
-				exit(6); // because SIGABRT == 6
+				/** after exit() process doesn't save coredump but abort does */
+				if (enable_coredump)
+					abort();
+				else
+					exit(SIGABRT);
 			}
 		} else {
 			struct timespec ms200 = {.tv_nsec = 200L * 1000 * 1000};
@@ -73,12 +79,17 @@ start(lua_State *L)
 	if (!isfinite(t) || t < 0) {
 		return luaL_argerror(L, 1, "timeout must be positive");
 	}
-	
+
+	if (lua_gettop(L) == 2) {
+		enable_coredump = lua_toboolean(L, 2);
+	}
+
 	if (timeout != 0) {
 		timeout = t;
 		pettime = clock_monotonic();
 		
-		say_info("Watchdog timeout changed to %.1f sec", timeout);
+		say_info("Watchdog timeout changed to %.1f sec (coredump %s)",
+		   timeout, enable_coredump ? "enabled" : "disabled");
 	} else {
 		timeout = t;
 
@@ -90,7 +101,8 @@ start(lua_State *L)
 		f_timer = fiber_new("watchdog_timer", fiber_timer);
 		fiber_start(f_timer);
 
-		say_info("Watchdog started with timeout %.1f sec", timeout);
+		say_info("Watchdog started with timeout %.1f sec (coredump %s)",
+		   timeout, enable_coredump ? "enabled" : "disabled");
 	}
 
 	return 0;
@@ -99,6 +111,7 @@ start(lua_State *L)
 static int
 stop(lua_State *L)
 {
+	(void)L;
 	timeout = 0;
 
 	if (f_petting != NULL) {
