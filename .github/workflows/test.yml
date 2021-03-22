@@ -1,0 +1,22 @@
+name: Test
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [ubuntu-20.04]
+        tarantool: ['1.10', '2.4', '2.5', '2.6', '2.7']
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: tarantool/setup-tarantool@v1
+        with:
+          tarantool-version: ${{ matrix.tarantool }}
+
+      - run: tarantoolctl rocks make
+      - run: make -C build.luarocks/ ARGS=-VV test

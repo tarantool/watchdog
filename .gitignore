@@ -3,6 +3,7 @@
 *.swp*
 
 build/
+build.luarocks
 CMakeCache.txt
 CMakeFiles/
 Makefile
