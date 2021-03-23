@@ -6,21 +6,32 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.0] - 2021-03-23
+
 ### Added
-- "enable_coredump" option.
+
+- New option to enable core dumps.
 
 ## [1.0.2] - 2019-12-09
+
 ### Fixed
-- Fix segmentation fault when user called "stop" twice (gh-6)
+
+- Fix segmentation fault when user calls `stop()` twice.
+
 ### Other
-- Bring luarocks best practices from tarantool/modulekit
+
+- Bring luarocks best practices from `tarantool/modulekit`.
 
 ## [1.0.1] - 2018-02-22
+
 ### Fixed
-- Unnecessary abortion after laptop is waken from suspend
+
+- Unnecessary abortion after laptop is waken from suspend.
 
 ## [1.0.0] - 2018-01-18
+
 ### Added
+
 - Basic functionality
 - Luarock-based packaging
 - Unit tests
