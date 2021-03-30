@@ -8,11 +8,21 @@
 #include <lauxlib.h>
 #include <module.h> // tarantool
 
+#if defined(box_on_shutdown)
+	#define ON_SHUTDOWN_TRIGGER_IS_AVAILABLE 1
+#else
+	#define ON_SHUTDOWN_TRIGGER_IS_AVAILABLE 0
+#endif
+
 volatile static bool enable_coredump = false;
 volatile static double pettime = 0.;
 volatile static double timeout = 0.;
 static struct fiber *f_petting = NULL;
 static struct fiber *f_timer = NULL;
+
+#if ON_SHUTDOWN_TRIGGER_IS_AVAILABLE
+static bool is_on_shutdown_trigger_active = false;
+#endif
 
 static ssize_t
 coio_timer(va_list ap)
@@ -71,6 +81,48 @@ fiber_petting(va_list ap)
 	return 0;
 }
 
+static void
+stop_impl()
+{
+	timeout = 0;
+
+	if (f_petting != NULL) {
+		fiber_cancel(f_petting);
+		f_petting = NULL;
+	}
+
+	if (f_timer != NULL) {
+		fiber_join(f_timer);
+		f_timer = NULL;
+	}
+}
+
+#if ON_SHUTDOWN_TRIGGER_IS_AVAILABLE
+static int
+on_stop_trigger(void *arg)
+{
+	(void)arg;
+	stop_impl();
+	return 0;
+}
+#endif
+
+static int
+stop(lua_State *L)
+{
+	(void)L;
+	stop_impl();
+
+#if ON_SHUTDOWN_TRIGGER_IS_AVAILABLE
+	if (is_on_shutdown_trigger_active) {
+		box_on_shutdown(NULL, NULL, on_stop_trigger);
+		is_on_shutdown_trigger_active = false;
+	}
+#endif
+
+	return 0;
+}
+
 
 static int
 start(lua_State *L)
@@ -105,24 +157,12 @@ start(lua_State *L)
 		   timeout, enable_coredump ? "enabled" : "disabled");
 	}
 
-	return 0;
-}
-
-static int
-stop(lua_State *L)
-{
-	(void)L;
-	timeout = 0;
-
-	if (f_petting != NULL) {
-		fiber_cancel(f_petting);
-		f_petting = NULL;
+#if ON_SHUTDOWN_TRIGGER_IS_AVAILABLE
+	if (!is_on_shutdown_trigger_active) {
+		box_on_shutdown(NULL, on_stop_trigger, NULL);
+		is_on_shutdown_trigger_active = true;
 	}
-
-	if (f_timer != NULL) {
-		fiber_join(f_timer);
-		f_timer = NULL;
-	}
+#endif
 
 	return 0;
 }
