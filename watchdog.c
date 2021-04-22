@@ -1,18 +1,15 @@
+#define _GNU_SOURCE 1
+
 #include <stdlib.h>
 #include <signal.h>
 #include <assert.h>
 #include <math.h>
 #include <time.h>
+#include <dlfcn.h>
 
 #include <lua.h>
 #include <lauxlib.h>
 #include <module.h> // tarantool
-
-#if defined(box_on_shutdown)
-	#define ON_SHUTDOWN_TRIGGER_IS_AVAILABLE 1
-#else
-	#define ON_SHUTDOWN_TRIGGER_IS_AVAILABLE 0
-#endif
 
 volatile static bool enable_coredump = false;
 volatile static double pettime = 0.;
@@ -20,9 +17,9 @@ volatile static double timeout = 0.;
 static struct fiber *f_petting = NULL;
 static struct fiber *f_timer = NULL;
 
-#if ON_SHUTDOWN_TRIGGER_IS_AVAILABLE
+static bool is_box_on_shutdown_available = false;
 static bool is_on_shutdown_trigger_active = false;
-#endif
+static int (*box_on_shutdown_ptr)(void *, int (*)(void *), int (*)(void *));
 
 static ssize_t
 coio_timer(va_list ap)
@@ -97,7 +94,6 @@ stop_impl()
 	}
 }
 
-#if ON_SHUTDOWN_TRIGGER_IS_AVAILABLE
 static int
 on_stop_trigger(void *arg)
 {
@@ -105,7 +101,6 @@ on_stop_trigger(void *arg)
 	stop_impl();
 	return 0;
 }
-#endif
 
 static int
 stop(lua_State *L)
@@ -113,12 +108,10 @@ stop(lua_State *L)
 	(void)L;
 	stop_impl();
 
-#if ON_SHUTDOWN_TRIGGER_IS_AVAILABLE
-	if (is_on_shutdown_trigger_active) {
-		box_on_shutdown(NULL, NULL, on_stop_trigger);
+	if (is_box_on_shutdown_available && is_on_shutdown_trigger_active) {
+		box_on_shutdown_ptr(NULL, NULL, on_stop_trigger);
 		is_on_shutdown_trigger_active = false;
 	}
-#endif
 
 	return 0;
 }
@@ -157,12 +150,10 @@ start(lua_State *L)
 		   timeout, enable_coredump ? "enabled" : "disabled");
 	}
 
-#if ON_SHUTDOWN_TRIGGER_IS_AVAILABLE
-	if (!is_on_shutdown_trigger_active) {
-		box_on_shutdown(NULL, on_stop_trigger, NULL);
+	if (is_box_on_shutdown_available && !is_on_shutdown_trigger_active) {
+		box_on_shutdown_ptr(NULL, on_stop_trigger, NULL);
 		is_on_shutdown_trigger_active = true;
 	}
-#endif
 
 	return 0;
 }
@@ -178,6 +169,20 @@ watchdog_atexit(void)
 LUA_API int
 luaopen_watchdog(lua_State *L)
 {
+	/**
+	 * For unknown reason Tarantool version before 2.8 has also "box_on_shutdown"
+	 * symbol (at least on MacOS). Checked with `nm tarantool|grep shutdown`.
+	 * Therefore initially we check "box_on_shutdown_trigger_list" here
+	 * such symbol exists only in 2.8+ version where "box_on_shutdown" trigger
+	 * is implemented.
+	 */
+	if (dlsym(RTLD_DEFAULT, "box_on_shutdown_trigger_list") != NULL) {
+		box_on_shutdown_ptr = dlsym(RTLD_DEFAULT, "box_on_shutdown");
+		if (box_on_shutdown_ptr != NULL) {
+			is_box_on_shutdown_available = true;
+		}
+	}
+
 	static const struct luaL_Reg lib [] = {
 		{"start", start},
 		{"stop", stop},
