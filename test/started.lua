@@ -19,6 +19,7 @@ watchdog.stop()
 
 -- Start with enable_coredump option
 watchdog.start(1, true)
-watchdog.stop()
 
+-- Exit tarantool without stopping watchdog explicitly.
+-- It shouldn't raise.
 os.exit(0)
