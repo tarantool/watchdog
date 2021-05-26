@@ -87,7 +87,7 @@ start(lua_State *L)
 	if (timeout != 0) {
 		timeout = t;
 		pettime = clock_monotonic();
-		
+
 		say_info("Watchdog timeout changed to %.1f sec (coredump %s)",
 		   timeout, enable_coredump ? "enabled" : "disabled");
 	} else {
@@ -138,12 +138,34 @@ watchdog_atexit(void)
 LUA_API int
 luaopen_watchdog(lua_State *L)
 {
+
+	lua_getglobal(L, "box"); // -0 +1
+	if (!lua_istable(L, -1)) {
+		return luaL_error(L, "assertion failed! missing global 'box'");
+	}
+
+	lua_pushstring(L, "ctl"); // -0 +1
+	lua_rawget(L, -2); // -1 +1
+	if (!lua_istable(L, -1)) {
+		return luaL_error(L, "assertion failed! missing module 'box.ctl'");
+	}
+
+	lua_getfield(L, -1, "on_shutdown"); // -0 +1
+
+	if (lua_isfunction(L, -1)) {
+		lua_pushcfunction(L, stop); // -0 +1
+		lua_call(L, 1, 0); // -2 +0
+	} else {
+		atexit(watchdog_atexit);
+	}
+
 	static const struct luaL_Reg lib [] = {
 		{"start", start},
 		{"stop", stop},
 		{NULL, NULL}
 	};
-	luaL_newlib(L, lib);
-	atexit(watchdog_atexit);
+
+	luaL_newlib(L, lib); // -0 +1
+
 	return 1;
 }
