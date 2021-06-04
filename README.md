@@ -7,8 +7,10 @@ The watchdog module spawns a thread and continuously checks the value
 of an internal variable. The variable is updated periodically
 by a separate tarantool fiber.
 
-The fiber update period equals to 1/2 of the `timeout` parameter.
-The watchdog period is hardcoded to be 200ms.
+The watchdog observation period is hardcoded to be 200ms.
+The fiber update period equals to 1/4 of the `timeout` parameter.
+Depending of precise timings, the real timeout event may occur
+from `timeout` to `1.25 * timeout` seconds.
 
 Whenever a problem with an update fiber occurs the watchdog thread
 performs `exit(6)` if coredump is disabled otherwise `abort()`.
