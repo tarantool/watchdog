@@ -24,14 +24,17 @@ coio_timer(va_list ap)
 	while (tt = timeout, tt) {
 		double now = clock_monotonic();
 
-		if (now > pettime + tt) {
+		// Pettime is updated every timeout/4 seconds. We want the
+		// real timeout event to occur not earlier than timeout,
+		// thus add spare 25% here.
+		if (now > pettime + (1.25 * tt)) {
 			if (now - prev > 1) {
 				// nanosleep took > 1 sec instead of 200ms
 				// maybe system was suspended for a while
 				// thus timeout should be ignored once
 				pettime = now;
 			} else {
-				say_error("Watchdog timeout %.1f sec. Aborting", tt);
+				say_error("Watchdog timeout %.1f sec. Aborting", now - pettime);
 				/** after exit() process doesn't save coredump but abort does */
 				if (enable_coredump)
 					abort();
@@ -65,7 +68,7 @@ fiber_petting(va_list ap)
 	fiber_set_cancellable(true);
 	while (!fiber_is_cancelled() && timeout) {
 		pettime = clock_monotonic();
-		fiber_sleep(timeout/2.);
+		fiber_sleep(timeout/4.);
 	}
 
 	return 0;

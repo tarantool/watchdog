@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.1] - 2021-06-04
+
+### Fixed
+
+- Depending of precise timings, the real timeout event may occur
+  from `timeout` to `1.25 * timeout` seconds. In the past it was
+  from `timeout/2` to `timeout`.
+
+- Fix graceful shutdown for Tarantool 2+.
+
 ## [1.1.0] - 2021-03-23
 
 ### Added
