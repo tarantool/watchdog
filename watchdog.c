@@ -9,9 +9,9 @@
 #include <lauxlib.h>
 #include <module.h> // tarantool
 
-volatile static atomic_bool enable_coredump = false;
-volatile static atomic_ullong pettime = 0.;
-volatile static atomic_ullong timeout = 0.;
+static atomic_bool enable_coredump = false;
+static atomic_ullong pettime = 0.;
+static atomic_ullong timeout = 0.;
 static struct fiber *f_petting = NULL;
 static struct fiber *f_timer = NULL;
 
@@ -28,16 +28,15 @@ coio_timer(va_list ap)
 		// Pettime is updated every timeout/4 seconds. We want the
 		// real timeout event to occur not earlier than timeout,
 		// thus add spare 25% here.
-		if (now > atomic_load_explicit(&pettime, memory_order_acquire) + (1.25 * tt)) {
+		if (now > atomic_exchange_explicit(&pettime, clock_monotonic64(), memory_order_acq_rel) + (1.25 * tt)) {
 			if (now - prev > 1) {
 				// nanosleep took > 1 sec instead of 200ms
 				// maybe system was suspended for a while
 				// thus timeout should be ignored once
-				atomic_store_explicit(&pettime, clock_monotonic64(), memory_order_release);
 			} else {
 				say_error("Watchdog timeout %.1f sec. Aborting", now - pettime);
 				/** after exit() process doesn't save coredump but abort does */
-				if (atomic_load_explicit(&enable_coredump, memory_order_acquire))
+				if (atomic_load_explicit(&enable_coredump, memory_order_consume))
 					abort();
 				else
 					exit(SIGABRT);
