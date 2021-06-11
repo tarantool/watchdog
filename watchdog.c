@@ -9,8 +9,8 @@
 #include <module.h> // tarantool
 
 volatile static bool enable_coredump = false;
-volatile static double pettime = 0.;
-volatile static double timeout = 0.;
+volatile static uint64_t pettime = 0.;
+volatile static uint64_t timeout = 0.;
 static struct fiber *f_petting = NULL;
 static struct fiber *f_timer = NULL;
 
@@ -19,10 +19,10 @@ coio_timer(va_list ap)
 {
 	(void)ap;
 
-	double prev = clock_monotonic();
-	double tt;
+	uint64_t prev = clock_monotonic64();
+	uint64_t tt;
 	while (tt = timeout, tt) {
-		double now = clock_monotonic();
+		double now = clock_monotonic64();
 
 		// Pettime is updated every timeout/4 seconds. We want the
 		// real timeout event to occur not earlier than timeout,
@@ -67,8 +67,8 @@ fiber_petting(va_list ap)
 	(void)ap;
 	fiber_set_cancellable(true);
 	while (!fiber_is_cancelled() && timeout) {
-		pettime = clock_monotonic();
-		fiber_sleep(timeout/4.);
+		pettime = clock_monotonic64();
+		fiber_sleep(timeout / 4 / 1000000000);
 	}
 
 	return 0;
@@ -88,13 +88,13 @@ start(lua_State *L)
 	}
 
 	if (timeout != 0) {
-		timeout = t;
-		pettime = clock_monotonic();
+		timeout = (uint64_t)t * 1000000000;
+		pettime = clock_monotonic64();
 
 		say_info("Watchdog timeout changed to %.1f sec (coredump %s)",
-		   timeout, enable_coredump ? "enabled" : "disabled");
+		   t, enable_coredump ? "enabled" : "disabled");
 	} else {
-		timeout = t;
+		timeout = (uint64_t)t * 1000000000;;
 
 		assert(f_petting == NULL);
 		f_petting = fiber_new("watchdog_petting", fiber_petting);
@@ -105,7 +105,7 @@ start(lua_State *L)
 		fiber_start(f_timer);
 
 		say_info("Watchdog started with timeout %.1f sec (coredump %s)",
-		   timeout, enable_coredump ? "enabled" : "disabled");
+		   t, enable_coredump ? "enabled" : "disabled");
 	}
 
 	return 0;
