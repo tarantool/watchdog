@@ -3,14 +3,15 @@
 #include <assert.h>
 #include <math.h>
 #include <time.h>
+#include <stdatomic.h>
 
 #include <lua.h>
 #include <lauxlib.h>
 #include <module.h> // tarantool
 
-volatile static bool enable_coredump = false;
-volatile static uint64_t pettime = 0.;
-volatile static uint64_t timeout = 0.;
+volatile static atomic_bool enable_coredump = false;
+volatile static atomic_ullong pettime = 0.;
+volatile static atomic_ullong timeout = 0.;
 static struct fiber *f_petting = NULL;
 static struct fiber *f_timer = NULL;
 
@@ -21,22 +22,22 @@ coio_timer(va_list ap)
 
 	uint64_t prev = clock_monotonic64();
 	uint64_t tt;
-	while (tt = timeout, tt) {
-		double now = clock_monotonic64();
+	while (tt = atomic_load_explicit(&timeout, memory_order_acquire), tt) {
+		uint64_t now = clock_monotonic64();
 
 		// Pettime is updated every timeout/4 seconds. We want the
 		// real timeout event to occur not earlier than timeout,
 		// thus add spare 25% here.
-		if (now > pettime + (1.25 * tt)) {
+		if (now > atomic_load_explicit(&pettime, memory_order_acquire) + (1.25 * tt)) {
 			if (now - prev > 1) {
 				// nanosleep took > 1 sec instead of 200ms
 				// maybe system was suspended for a while
 				// thus timeout should be ignored once
-				pettime = now;
+				atomic_store_explicit(&pettime, clock_monotonic64(), memory_order_release);
 			} else {
 				say_error("Watchdog timeout %.1f sec. Aborting", now - pettime);
 				/** after exit() process doesn't save coredump but abort does */
-				if (enable_coredump)
+				if (atomic_load_explicit(&enable_coredump, memory_order_acquire))
 					abort();
 				else
 					exit(SIGABRT);
@@ -65,10 +66,11 @@ static int
 fiber_petting(va_list ap)
 {
 	(void)ap;
+	uint64_t t;
 	fiber_set_cancellable(true);
-	while (!fiber_is_cancelled() && timeout) {
-		pettime = clock_monotonic64();
-		fiber_sleep(timeout / 4 / 1000000000);
+	while (!fiber_is_cancelled() && (t = atomic_load_explicit(&timeout, memory_order_acquire))) {
+		atomic_store_explicit(&pettime, clock_monotonic64(), memory_order_release);
+		fiber_sleep(t / 4. / 1000000000);
 	}
 
 	return 0;
@@ -84,17 +86,17 @@ start(lua_State *L)
 	}
 
 	if (lua_gettop(L) == 2) {
-		enable_coredump = lua_toboolean(L, 2);
+		atomic_store_explicit(&enable_coredump, lua_toboolean(L, 2), memory_order_release);
 	}
 
-	if (timeout != 0) {
-		timeout = (uint64_t)t * 1000000000;
-		pettime = clock_monotonic64();
+	if (atomic_load_explicit(&timeout, memory_order_relaxed) != 0) {
+		atomic_store_explicit(&timeout, (uint64_t)(t * 1000000000), memory_order_release);
+		atomic_store_explicit(&pettime, clock_monotonic64(), memory_order_release);
 
 		say_info("Watchdog timeout changed to %.1f sec (coredump %s)",
 		   t, enable_coredump ? "enabled" : "disabled");
 	} else {
-		timeout = (uint64_t)t * 1000000000;;
+		atomic_store_explicit(&timeout, (uint64_t)(t * 1000000000), memory_order_release);
 
 		assert(f_petting == NULL);
 		f_petting = fiber_new("watchdog_petting", fiber_petting);
@@ -115,7 +117,7 @@ static int
 stop(lua_State *L)
 {
 	(void)L;
-	timeout = 0;
+	atomic_store_explicit(&timeout, 0, memory_order_release);
 
 	if (f_petting != NULL) {
 		fiber_cancel(f_petting);
@@ -133,7 +135,7 @@ stop(lua_State *L)
 static void
 watchdog_atexit(void)
 {
-	timeout = 0;
+	atomic_store_explicit(&timeout, 0, memory_order_release);
 }
 
 /* ====================LIBRARY INITIALISATION FUNCTION======================= */
